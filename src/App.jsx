@@ -147,6 +147,7 @@ function App() {
   const [showCalculations, setShowCalculations] = React.useState(false);
   const [upWeight, setUpWeight] = React.useState(DEFAULT_SETTINGS.upWeight);
   const [downWeight, setDownWeight] = React.useState(DEFAULT_SETTINGS.downWeight);
+  const [maxStops, setMaxStops] = React.useState(DEFAULT_SETTINGS.maxStops);
   const calculationsRef = React.useRef(null);
 
   const requests = React.useMemo(() => expandRequests(requestCounts), [requestCounts]);
@@ -157,9 +158,9 @@ function App() {
         upWeight,
         downWeight,
         DEFAULT_SETTINGS.stopPenalty,
-        DEFAULT_SETTINGS.maxStops
+        maxStops
       ),
-    [requests, upWeight, downWeight]
+    [requests, upWeight, downWeight, maxStops]
   );
   const calculationDetails = React.useMemo(
     () =>
@@ -168,9 +169,9 @@ function App() {
         upWeight,
         downWeight,
         DEFAULT_SETTINGS.stopPenalty,
-        DEFAULT_SETTINGS.maxStops
+        maxStops
       ),
-    [requests, upWeight, downWeight]
+    [requests, upWeight, downWeight, maxStops]
   );
 
   const activeFloors = React.useMemo(
@@ -313,9 +314,9 @@ function App() {
               <h2>Why these stoppages were chosen</h2>
             </div>
             <p className="calc-copy">
-              The scheduler sorts the requests, tests the weighted-percentile single-stop
-              option, then compares it against every possible two-group split with a stop
-              penalty added for each lift stop.
+              The scheduler sorts requests, tests a weighted-percentile single-stop option,
+              and when max stops is 2, compares it against every possible two-group split
+              with a stop penalty added for each lift stop.
             </p>
           </div>
 
@@ -352,6 +353,21 @@ function App() {
 
               <div className="explain-stack">
                 <div className="slider-grid">
+                  <label className="calc-slider">
+                    <span>Max stops in plan</span>
+                    <div className="slider-row">
+                      <select
+                        className="stop-select"
+                        onChange={(event) => setMaxStops(Number(event.target.value))}
+                        value={maxStops}
+                      >
+                        <option value={1}>1 stop</option>
+                        <option value={2}>2 stops</option>
+                      </select>
+                      <strong>{maxStops}</strong>
+                    </div>
+                  </label>
+
                   <label className="calc-slider">
                     <span>Stair go up cost</span>
                     <div className="slider-row">
@@ -396,7 +412,7 @@ function App() {
                 </div>
                 <div className="explain-line">
                   For two stops, it tries every possible split and keeps the lowest total cost with
-                  max stops fixed at {DEFAULT_SETTINGS.maxStops}.
+                  max stops currently set to {maxStops}.
                 </div>
               </div>
 
