@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiftPilot Pitch Write-Up</title>
+    <style>
+      body {
+        font-family: "Aptos", "Calibri", sans-serif;
+        font-size: 12pt;
+        line-height: 1.35;
+        color: #111;
+        margin: 0.7in;
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 10pt;
+        color: #0d3b66;
+      }
+
+      h1 {
+        font-size: 20pt;
+      }
+
+      h2 {
+        font-size: 13pt;
+        margin-top: 14pt;
+      }
+
+      p {
+        margin: 0 0 9pt;
+        text-align: justify;
+      }
+
+      ul {
+        margin: 0 0 9pt 18pt;
+        padding: 0;
+      }
+
+      li {
+        margin: 0 0 5pt;
+      }
+
+      .formula {
+        margin: 6pt 0 10pt;
+        padding: 8pt 10pt;
+        background: #f3f7fb;
+        border-left: 3pt solid #0d3b66;
+        font-family: "Courier New", monospace;
+        white-space: pre-wrap;
+      }
+
+      .meta {
+        color: #555;
+        font-size: 10.5pt;
+        margin-bottom: 12pt;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LiftPilot: Smart Lift Stoppage Scheduler for Crowded Buildings</h1>
+    <p class="meta">
+      Project type: Frontend scheduling prototype | Stack: React 18, Vite, CSS | Deployment-ready static app
+    </p>
+
+    <p>
+      LiftPilot is a smart lift scheduling prototype designed for rush-hour movement inside crowded buildings.
+      Instead of making the lift stop at every requested floor, the system recommends the best one-stop or
+      two-stop plan so that the lift can move faster while still keeping passenger walking effort low. The
+      project is based on the idea that during heavy traffic, a lift should behave like a shared transport
+      system, not like a private elevator. This improves throughput, reduces unnecessary stoppages, and keeps
+      the line moving.
+    </p>
+
+    <p>
+      The prototype is implemented as a single-page React application with a tablet-style interface for floors
+      1 to 15. A user taps destination floors, the system queues all requests, and the scheduler immediately
+      computes the recommended stoppages. The UI also shows total riders, active floors, total cost, selected
+      stops, and a detailed calculation panel. That panel makes the solution explainable because it shows the
+      sorted requests, the weighted percentile used for a one-stop plan, every possible two-group split, and
+      the total cost comparison before choosing the final result.
+    </p>
+
+    <h2>Core Technical Idea</h2>
+    <p>
+      LiftPilot does not use AI or machine learning. It uses a deterministic weighted cost function. This
+      makes the system fast, transparent, and suitable for real-time decision making. The model assumes that
+      walking upstairs is more difficult than walking downstairs, so upward stair movement is penalized more
+      heavily than downward movement.
+    </p>
+
+    <p>
+      If a passenger wants floor f and the lift stops at floor s, the walking cost is:
+    </p>
+
+    <div class="formula">cost(f, s) = upWeight * (f - s),   if f &gt; s
+cost(f, s) = downWeight * (s - f), if f &lt;= s</div>
+
+    <p>
+      In the current implementation, the default parameters are:
+    </p>
+
+    <ul>
+      <li><strong>upWeight = 3</strong></li>
+      <li><strong>downWeight = 1</strong></li>
+      <li><strong>stopPenalty = 8</strong></li>
+      <li><strong>maxStops = 2</strong></li>
+    </ul>
+
+    <p>
+      This means that walking up by one floor is treated as three times more costly than walking down by one
+      floor. Each extra lift stop also adds a penalty, because every stop increases waiting time and reduces
+      operational efficiency.
+    </p>
+
+    <p>
+      For a request set R, the total walking cost for one stop s is:
+    </p>
+
+    <div class="formula">C_walk(s) = sum over all f in R of cost(f, s)</div>
+
+    <p>
+      The full one-stop objective becomes:
+    </p>
+
+    <div class="formula">C_1(s) = C_walk(s) + stopPenalty</div>
+
+    <h2>How the Best Stop Is Chosen</h2>
+    <p>
+      For a one-stop plan, the requests are sorted and the scheduler selects a weighted percentile floor. The
+      percentile is derived from the relative pain of climbing versus descending stairs:
+    </p>
+
+    <div class="formula">q = upWeight / (upWeight + downWeight)</div>
+
+    <p>
+      With the default values:
+    </p>
+
+    <div class="formula">q = 3 / (3 + 1) = 0.75</div>
+
+    <p>
+      So the algorithm selects approximately the 75th percentile floor from the sorted request list. This
+      intentionally biases the stop upward so that fewer passengers are forced to walk up, which is the more
+      expensive action in the model.
+    </p>
+
+    <p>
+      In code, for n sorted requests, the stop index is:
+    </p>
+
+    <div class="formula">index = ceil(q * n) - 1</div>
+
+    <h2>Two-Stop Optimization</h2>
+    <p>
+      If two stops are allowed, the sorted request list is split at every possible cut position. The left and
+      right groups are optimized independently, and the total cost is calculated as:
+    </p>
+
+    <div class="formula">C_2 = C_walk(leftGroup, leftStop) + C_walk(rightGroup, rightStop) + 2 * stopPenalty</div>
+
+    <p>
+      The scheduler compares the best one-stop plan with all possible two-stop plans and chooses:
+    </p>
+
+    <div class="formula">Final plan = min(C_1, C_2)</div>
+
+    <p>
+      This ensures that an extra stop is added only when it reduces enough walking cost to justify the delay
+      introduced by the stop itself.
+    </p>
+
+    <h2>System Architecture</h2>
+    <ul>
+      <li>Frontend built in React 18 with Vite for fast development and build performance.</li>
+      <li>Pure client-side execution, so the prototype has no backend dependency.</li>
+      <li>Interactive queue management with floor tapping, undo, clear queue, and live recalculation.</li>
+      <li>Responsive kiosk-style UI designed for desktop and tablet presentation.</li>
+      <li>Detailed explanation panel to support demonstration, validation, and academic presentation.</li>
+    </ul>
+
+    <h2>Technical Value</h2>
+    <p>
+      From an engineering perspective, the project is useful because it turns a real building-management problem
+      into a measurable optimization problem. The scheduler is explainable, quick to compute, and easy to tune
+      using sliders for upward walking cost, downward walking cost, and maximum stops. Because the current
+      design is rule-based and transparent, it is also a strong foundation for future extensions such as
+      time-based traffic modelling, adaptive penalties, or integration with real elevator hardware and sensors.
+    </p>
+
+    <p>
+      In conclusion, LiftPilot is a practical and technically sound prototype for smart building mobility. Its
+      main contribution is not just a working interface, but a clear scheduling logic that balances passenger
+      comfort with lift efficiency using a weighted mathematical model.
+    </p>
+  </body>
+</html>
